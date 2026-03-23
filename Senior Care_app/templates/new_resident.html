@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>New Patient Form</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <h1>SeniorCare</h1>
+        <div class="header-right">
+            {% if username %}
+                <span class="user-info">Logged in as {{ username }}</span>
+                <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+            {% endif %}
+            <a href="{{ url_for('home') }}" class="btn-logout" style="background-color:#334e68;">Back</a>
+        </div>
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="auth-container" style="margin: 40px auto;">
+            <h1>New Patient</h1>
+            <form method="post">
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input id="name" name="name" type="text" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="age">Age</label>
+                    <input id="age" name="age" type="number" min="1" max="130" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="bp">Blood Pressure (BP)</label>
+                    <input id="bp" name="bp" type="number" min="1" max="400" required>
+                </div>
+
+                <button type="submit" class="btn-primary">Add Patient</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
+

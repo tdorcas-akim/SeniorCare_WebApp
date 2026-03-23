@@ -1,0 +1,11 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "name": "Seniorcare_conn",
+            "database": "Seniorcare.db"
+        }
+    ],
+    "sqltools.useNodeRuntime": true
+}
