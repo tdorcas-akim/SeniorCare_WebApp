@@ -50,6 +50,7 @@
                         <th>Age</th>
                         <th>Vitals (BP)</th>
                         <th>Status</th>
+                        <th>Medication checklist ({{ today }})</th>
                         <th>Notes</th>
                         <th>Actions</th>
                     </tr>
@@ -65,6 +66,36 @@
                                 <span class="status warning">High Alert</span>
                             {% else %}
                                 <span class="status normal">Stable</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set meds = medications_by_resident.get(person['id'], []) %}
+                            {% set given_ids = given_ids_by_resident.get(person['id'], []) %}
+
+                            {% if meds %}
+                                <form method="post" action="{{ url_for('update_medication_checklist', resident_id=person['id']) }}" class="dashboard-med-form">
+                                    <div class="dashboard-med-list">
+                                        {% for med in meds %}
+                                            <label class="dashboard-med-item">
+                                                <input
+                                                    type="checkbox"
+                                                    name="given_ids"
+                                                    value="{{ med['id'] }}"
+                                                    {% if med['id'] in given_ids %}checked{% endif %}
+                                                >
+                                                <span>
+                                                    {{ med['name'] }}
+                                                    {% if med['dosage'] %}
+                                                        ({{ med['dosage'] }})
+                                                    {% endif %}
+                                                </span>
+                                            </label>
+                                        {% endfor %}
+                                    </div>
+                                    <button type="submit" class="btn-small">Save</button>
+                                </form>
+                            {% else %}
+                                <span class="no-medications">No meds</span>
                             {% endif %}
                         </td>
                         <td>

@@ -70,11 +70,68 @@
             <div class="notes-column">
                 <h3>New note</h3>
                 <form method="post" class="note-form">
+                    <input type="hidden" name="action" value="note">
                     <div class="form-group">
                         <label for="content">Message for the doctor</label>
                         <textarea id="content" name="content" rows="4" required placeholder="e.g. Patient ate well today, had some dizziness in the morning."></textarea>
                     </div>
                     <button type="submit" class="btn-primary">Add note</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="medications-section">
+            <div class="medications-header">
+                <h3>Medication Checklist ({{ today }})</h3>
+            </div>
+
+            <form method="post" class="med-check-form">
+                <input type="hidden" name="action" value="med_check">
+
+                {% if medications %}
+                    <div class="med-list">
+                        {% for med in medications %}
+                            <label class="med-item">
+                                <input
+                                    type="checkbox"
+                                    name="given_ids"
+                                    value="{{ med['id'] }}"
+                                    {% if med['id'] in given_medication_ids %}checked{% endif %}
+                                >
+                                <span class="med-text">
+                                    <strong>{{ med['name'] }}</strong>
+                                    {% if med['dosage'] %}
+                                        <span class="med-dosage">({{ med['dosage'] }})</span>
+                                    {% endif %}
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="no-notes">No medications yet for this patient.</p>
+                {% endif %}
+
+                <button type="submit" class="btn-primary" {% if not medications %}disabled{% endif %}>
+                    Save checklist
+                </button>
+            </form>
+
+            <div class="med-add">
+                <h3>Add medication</h3>
+                <form method="post" class="med-add-form">
+                    <input type="hidden" name="action" value="med_add">
+
+                    <div class="form-group">
+                        <label for="med_name">Medication name</label>
+                        <input id="med_name" name="med_name" type="text" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="med_dosage">Dosage (optional)</label>
+                        <input id="med_dosage" name="med_dosage" type="text">
+                    </div>
+
+                    <button type="submit" class="btn-primary">Add medication</button>
                 </form>
             </div>
         </div>

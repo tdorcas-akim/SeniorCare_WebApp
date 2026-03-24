@@ -76,12 +76,12 @@ tr:hover {
     font-weight: 600;
 }
 
-.normal { background: #dcfce7; color: #166534; }
+.normal { background: #dcfce7; color: #126485; }
 .warning { background: #fee2e2; color: #991b1b; }
 
 /* Action Button */
 .btn-add {
-    background-color: #22c55e;
+    background-color: #122d85;
     color: white;
     border: none;
     padding: 10px 20px;
@@ -96,7 +96,7 @@ tr:hover {
 }
 
 .btn-add:hover {
-    background-color: #16a34a;
+    background-color: #3b83f627;
 }
 
 /* Header right side (user + buttons) */
@@ -179,7 +179,7 @@ tr:hover {
     margin-bottom: 24px;
     font-size: 22px;
     text-align: center;
-    color: #102a43;
+    color: #3e3347;
 }
 
 .form-group {
@@ -210,7 +210,7 @@ tr:hover {
 
 .btn-primary {
     width: 100%;
-    background-color: #3b82f6;
+    background-color: #3e3347;
     color: white;
     border: none;
     padding: 10px 16px;
@@ -222,7 +222,7 @@ tr:hover {
 }
 
 .btn-primary:hover {
-    background-color: #2563eb;
+    background-color: #3e3347;
 }
 
 .auth-container p {
@@ -232,7 +232,7 @@ tr:hover {
 }
 
 .auth-container a {
-    color: #3b82f6;
+    color: #3b83f627;
     text-decoration: none;
 }
 
@@ -385,4 +385,96 @@ tr:hover {
 
 .patient-actions form {
     display: inline;
+}
+
+/* Medication checklist */
+.medications-section {
+    margin-top: 28px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    padding: 20px 24px;
+}
+
+.medications-header h3 {
+    margin: 0 0 14px;
+    color: #334e68;
+}
+
+.med-check-form {
+    margin-bottom: 18px;
+}
+
+.med-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.med-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+}
+
+.med-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+
+.med-text {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.med-dosage {
+    color: #627d98;
+    font-weight: 600;
+}
+
+.med-add {
+    margin-top: 6px;
+}
+
+.med-add h3 {
+    margin: 0 0 12px;
+    color: #334e68;
+}
+
+/* Dashboard medication checklist */
+.dashboard-med-form {
+    min-width: 220px;
+}
+
+.dashboard-med-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+    max-height: 140px;
+    overflow-y: auto;
+}
+
+.dashboard-med-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.dashboard-med-item input[type="checkbox"] {
+    margin-top: 1px;
+}
+
+.no-medications {
+    color: #64748b;
+    font-size: 13px;
 }

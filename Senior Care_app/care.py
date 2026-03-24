@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from functools import wraps
+from datetime import date
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 
@@ -57,6 +58,31 @@ def init_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS medications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resident_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            dosage TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (resident_id) REFERENCES residents (id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS medication_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            medication_id INTEGER NOT NULL,
+            given_date TEXT NOT NULL,
+            given_by TEXT,
+            given_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (medication_id) REFERENCES medications (id) ON DELETE CASCADE,
+            UNIQUE (medication_id, given_date)
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -75,6 +101,7 @@ def login_required(view):
 @login_required
 def home():
     q = request.args.get("q", "").strip()
+    today = date.today().isoformat()
     db = get_db_connection()
     if q:
         residents = db.execute(
@@ -83,12 +110,54 @@ def home():
         ).fetchall()
     else:
         residents = db.execute("SELECT * FROM residents ORDER BY name").fetchall()
+
+    medications_by_resident = {}
+    given_ids_by_resident = {}
+    resident_ids = [resident["id"] for resident in residents]
+
+    if resident_ids:
+        placeholders = ",".join(["?"] * len(resident_ids))
+        medications = db.execute(
+            f"""
+            SELECT id, resident_id, name, dosage, created_at
+            FROM medications
+            WHERE resident_id IN ({placeholders})
+            ORDER BY created_at DESC
+            """,
+            resident_ids,
+        ).fetchall()
+
+        for med in medications:
+            rid = med["resident_id"]
+            if rid not in medications_by_resident:
+                medications_by_resident[rid] = []
+            medications_by_resident[rid].append(med)
+
+        given_rows = db.execute(
+            f"""
+            SELECT ml.medication_id, m.resident_id
+            FROM medication_logs ml
+            INNER JOIN medications m ON m.id = ml.medication_id
+            WHERE m.resident_id IN ({placeholders}) AND ml.given_date = ?
+            """,
+            (*resident_ids, today),
+        ).fetchall()
+
+        for row in given_rows:
+            rid = row["resident_id"]
+            if rid not in given_ids_by_resident:
+                given_ids_by_resident[rid] = set()
+            given_ids_by_resident[rid].add(row["medication_id"])
+
     db.close()
     return render_template(
         "index.html",
         residents=residents,
+        medications_by_resident=medications_by_resident,
+        given_ids_by_resident=given_ids_by_resident,
         username=session.get("username"),
         q=q,
+        today=today,
     )
 
 
@@ -273,6 +342,54 @@ def delete_resident(resident_id):
     return redirect(url_for("home"))
 
 
+@app.route("/residents/<int:resident_id>/medications/check", methods=["POST"])
+@login_required
+def update_medication_checklist(resident_id):
+    today = date.today().isoformat()
+    given_ids_raw = request.form.getlist("given_ids")
+    given_ids = set()
+    for x in given_ids_raw:
+        try:
+            given_ids.add(int(x))
+        except ValueError:
+            continue
+
+    db = get_db_connection()
+    resident = db.execute(
+        "SELECT id FROM residents WHERE id = ?", (resident_id,)
+    ).fetchone()
+    if not resident:
+        db.close()
+        flash("Patient not found.", "error")
+        return redirect(url_for("home"))
+
+    db.execute(
+        """
+        DELETE FROM medication_logs
+        WHERE medication_id IN (
+            SELECT id FROM medications WHERE resident_id = ?
+        )
+        AND given_date = ?
+        """,
+        (resident_id, today),
+    )
+
+    if given_ids:
+        rows = [(mid, today, session.get("username")) for mid in given_ids]
+        db.executemany(
+            """
+            INSERT INTO medication_logs (medication_id, given_date, given_by)
+            VALUES (?, ?, ?)
+            """,
+            rows,
+        )
+
+    db.commit()
+    db.close()
+    flash("Medication checklist saved.", "success")
+    return redirect(url_for("home"))
+
+
 @app.route("/residents/<int:resident_id>", methods=["GET", "POST"])
 @login_required
 def resident_detail(resident_id):
@@ -286,28 +403,104 @@ def resident_detail(resident_id):
         flash("Patient not found.", "error")
         return redirect(url_for("home"))
 
+    today = date.today().isoformat()
+
     if request.method == "POST":
-        content = request.form.get("content", "").strip()
-        if not content:
-            flash("Note cannot be empty.", "error")
-        else:
+        action = request.form.get("action", "note")
+
+        if action == "note":
+            content = request.form.get("content", "").strip()
+            if not content:
+                flash("Note cannot be empty.", "error")
+            else:
+                db.execute(
+                    "INSERT INTO notes (resident_id, content, author) VALUES (?, ?, ?)",
+                    (resident_id, content, session.get("username")),
+                )
+                db.commit()
+                flash("Note added.", "success")
+
+        elif action == "med_add":
+            med_name = request.form.get("med_name", "").strip()
+            med_dosage = request.form.get("med_dosage", "").strip()
+
+            if not med_name:
+                flash("Medication name is required.", "error")
+            else:
+                db.execute(
+                    "INSERT INTO medications (resident_id, name, dosage) VALUES (?, ?, ?)",
+                    (resident_id, med_name, med_dosage or None),
+                )
+                db.commit()
+                flash("Medication added.", "success")
+
+        elif action == "med_check":
+            given_ids_raw = request.form.getlist("given_ids")
+            # Normalize to ints; ignore invalid values silently.
+            given_ids = set()
+            for x in given_ids_raw:
+                try:
+                    given_ids.add(int(x))
+                except ValueError:
+                    continue
+
+            # For "today", treat checkbox state as the source of truth:
+            # remove all logs then recreate for checked medications.
             db.execute(
-                "INSERT INTO notes (resident_id, content, author) VALUES (?, ?, ?)",
-                (resident_id, content, session.get("username")),
+                """
+                DELETE FROM medication_logs
+                WHERE medication_id IN (
+                    SELECT id FROM medications WHERE resident_id = ?
+                )
+                AND given_date = ?
+                """,
+                (resident_id, today),
             )
+
+            if given_ids:
+                rows = [(mid, today, session.get("username")) for mid in given_ids]
+                db.executemany(
+                    """
+                    INSERT INTO medication_logs (medication_id, given_date, given_by)
+                    VALUES (?, ?, ?)
+                    """,
+                    rows,
+                )
             db.commit()
-            flash("Note added.", "success")
+            flash("Medication checklist saved.", "success")
 
     notes = db.execute(
         "SELECT content, author, created_at FROM notes WHERE resident_id = ? ORDER BY created_at DESC",
         (resident_id,),
     ).fetchall()
+
+    medications = db.execute(
+        "SELECT id, name, dosage FROM medications WHERE resident_id = ? ORDER BY created_at DESC",
+        (resident_id,),
+    ).fetchall()
+
+    given_medication_ids = set()
+    if medications:
+        given_rows = db.execute(
+            """
+            SELECT ml.medication_id
+            FROM medication_logs ml
+            INNER JOIN medications m ON m.id = ml.medication_id
+            WHERE m.resident_id = ? AND ml.given_date = ?
+            """,
+            (resident_id, today),
+        ).fetchall()
+        given_medication_ids = {row["medication_id"] for row in given_rows}
+
     db.close()
 
     return render_template(
         "resident_detail.html",
         resident=resident,
         notes=notes,
+        medications=medications,
+        given_medication_ids=given_medication_ids,
+        today=today,
         username=session.get("username"),
     )
 
