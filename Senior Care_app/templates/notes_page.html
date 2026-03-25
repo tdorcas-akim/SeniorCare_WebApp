@@ -37,6 +37,7 @@
             <div class="patient-actions">
                 <a href="{{ url_for('bp_history', resident_id=resident['id']) }}" class="btn-small">BP history</a>
                 <a href="{{ url_for('doctor_summary', resident_id=resident['id']) }}" class="btn-small">Report</a>
+                <a href="{{ url_for('resident_medications', resident_id=resident['id']) }}" class="btn-small">Medications</a>
                 <a href="{{ url_for('edit_resident', resident_id=resident['id']) }}" class="btn-small">Edit</a>
                 <form method="post" action="{{ url_for('delete_resident', resident_id=resident['id']) }}" onsubmit="return confirm('Are you sure you want to delete this patient?');">
                     <button type="submit" class="btn-small btn-small-danger">Delete</button>
@@ -71,68 +72,11 @@
             <div class="notes-column">
                 <h3>New note</h3>
                 <form method="post" class="note-form">
-                    <input type="hidden" name="action" value="note">
                     <div class="form-group">
                         <label for="content">Message for the doctor</label>
                         <textarea id="content" name="content" rows="4" required placeholder="e.g. Patient ate well today, had some dizziness in the morning."></textarea>
                     </div>
                     <button type="submit" class="btn-primary">Add note</button>
-                </form>
-            </div>
-        </div>
-
-        <div class="medications-section">
-            <div class="medications-header">
-                <h3>Medication Checklist ({{ today }})</h3>
-            </div>
-
-            <form method="post" class="med-check-form">
-                <input type="hidden" name="action" value="med_check">
-
-                {% if medications %}
-                    <div class="med-list">
-                        {% for med in medications %}
-                            <label class="med-item">
-                                <input
-                                    type="checkbox"
-                                    name="given_ids"
-                                    value="{{ med['id'] }}"
-                                    {% if med['id'] in given_medication_ids %}checked{% endif %}
-                                >
-                                <span class="med-text">
-                                    <strong>{{ med['name'] }}</strong>
-                                    {% if med['dosage'] %}
-                                        <span class="med-dosage">({{ med['dosage'] }})</span>
-                                    {% endif %}
-                                </span>
-                            </label>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="no-notes">No medications yet for this patient.</p>
-                {% endif %}
-
-                <button type="submit" class="btn-primary" {% if not medications %}disabled{% endif %}>
-                    Save checklist
-                </button>
-            </form>
-
-            <div class="med-add" id="med-add">
-                <h3>Add medication</h3>
-                <form method="post" class="med-add-form">
-                    <input type="hidden" name="action" value="med_add">
-
-                    <div class="form-group">
-                        <label for="med_name">Medication name</label>
-                        <input id="med_name" name="med_name" type="text" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="med_dosage">Dosage (optional)</label>
-                        <input id="med_dosage" name="med_dosage" type="text">
-                    </div>
-
-                    <button type="submit" class="btn-primary">Add medication</button>
                 </form>
             </div>
         </div>

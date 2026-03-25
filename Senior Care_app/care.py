@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, abort
 from functools import wraps
 from datetime import date
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -16,6 +16,8 @@ def get_db_connection():
 
 def init_db():
     conn = get_db_connection()
+    # Create tables if they do not exist yet.
+    # This app stores everything in a local SQLite database.
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS users (
@@ -65,6 +67,7 @@ def init_db():
             resident_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             dosage TEXT,
+            -- Save time is used only for ordering in the UI.
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (resident_id) REFERENCES residents (id) ON DELETE CASCADE
         )
@@ -77,8 +80,10 @@ def init_db():
             medication_id INTEGER NOT NULL,
             given_date TEXT NOT NULL,
             given_by TEXT,
+            -- We save when staff checked the medication.
             given_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (medication_id) REFERENCES medications (id) ON DELETE CASCADE,
+            -- One row per medication per day.
             UNIQUE (medication_id, given_date)
         )
         """
@@ -101,6 +106,7 @@ def login_required(view):
 @login_required
 def home():
     q = request.args.get("q", "").strip()
+    # Used for the "today" medication checklist.
     today = date.today().isoformat()
     db = get_db_connection()
     if q:
@@ -111,12 +117,22 @@ def home():
     else:
         residents = db.execute("SELECT * FROM residents ORDER BY name").fetchall()
 
+    # Find residents with BP > 140 (high alert).
+    # This is a simple loop so staff can see urgency fast.
+    high_alert_names = []
+    for resident in residents:
+        if resident["bp"] > 140:
+            high_alert_names.append(resident["name"])
+
     medications_by_resident = {}
     given_ids_by_resident = {}
     resident_ids = [resident["id"] for resident in residents]
 
     if resident_ids:
+        # Build a SQL IN clause like "?, ?, ?" for N residents.
         placeholders = ",".join(["?"] * len(resident_ids))
+
+        # Load medications for all residents on the dashboard.
         medications = db.execute(
             f"""
             SELECT id, resident_id, name, dosage, created_at
@@ -127,12 +143,15 @@ def home():
             resident_ids,
         ).fetchall()
 
+        # Group medications by resident id.
         for med in medications:
             rid = med["resident_id"]
             if rid not in medications_by_resident:
                 medications_by_resident[rid] = []
             medications_by_resident[rid].append(med)
 
+        # Load medication checks for today.
+        # We join logs -> medications to get resident_id.
         given_rows = db.execute(
             f"""
             SELECT ml.medication_id, m.resident_id
@@ -146,6 +165,7 @@ def home():
         for row in given_rows:
             rid = row["resident_id"]
             if rid not in given_ids_by_resident:
+                # Keep set for fast "id in given_ids" checks.
                 given_ids_by_resident[rid] = set()
             given_ids_by_resident[rid].add(row["medication_id"])
 
@@ -153,6 +173,7 @@ def home():
     return render_template(
         "index.html",
         residents=residents,
+        high_alert_names=high_alert_names,
         medications_by_resident=medications_by_resident,
         given_ids_by_resident=given_ids_by_resident,
         username=session.get("username"),
@@ -346,6 +367,7 @@ def delete_resident(resident_id):
 @login_required
 def update_medication_checklist(resident_id):
     today = date.today().isoformat()
+    # The dashboard sends only the checked medication ids.
     given_ids_raw = request.form.getlist("given_ids")
     given_ids = set()
     for x in given_ids_raw:
@@ -363,6 +385,8 @@ def update_medication_checklist(resident_id):
         flash("Patient not found.", "error")
         return redirect(url_for("home"))
 
+    # We use "today" checkboxes as the source of truth.
+    # So we delete today's logs, then re-add the checked ones.
     db.execute(
         """
         DELETE FROM medication_logs
@@ -393,6 +417,57 @@ def update_medication_checklist(resident_id):
 @app.route("/residents/<int:resident_id>", methods=["GET", "POST"])
 @login_required
 def resident_detail(resident_id):
+    # Old page (notes + meds together).
+    # We redirect to the new Notes-only page.
+    return redirect(url_for("resident_notes", resident_id=resident_id))
+
+
+@app.route("/residents/<int:resident_id>/notes", methods=["GET", "POST"])
+@login_required
+def resident_notes(resident_id):
+    # Notes-only page.
+    db = get_db_connection()
+    resident = db.execute(
+        "SELECT * FROM residents WHERE id = ?", (resident_id,)
+    ).fetchone()
+
+    if not resident:
+        db.close()
+        flash("Patient not found.", "error")
+        return redirect(url_for("home"))
+
+    if request.method == "POST":
+        # Save a new note.
+        content = request.form.get("content", "").strip()
+        if not content:
+            flash("Note cannot be empty.", "error")
+        else:
+            db.execute(
+                "INSERT INTO notes (resident_id, content, author) VALUES (?, ?, ?)",
+                (resident_id, content, session.get("username")),
+            )
+            db.commit()
+            flash("Note added.", "success")
+
+    notes = db.execute(
+        "SELECT content, author, created_at FROM notes WHERE resident_id = ? ORDER BY created_at DESC",
+        (resident_id,),
+    ).fetchall()
+
+    db.close()
+
+    return render_template(
+        "notes_page.html",
+        resident=resident,
+        notes=notes,
+        username=session.get("username"),
+    )
+
+
+@app.route("/residents/<int:resident_id>/medications", methods=["GET", "POST"])
+@login_required
+def resident_medications(resident_id):
+    # Medications-only page.
     db = get_db_connection()
     resident = db.execute(
         "SELECT * FROM residents WHERE id = ?", (resident_id,)
@@ -406,24 +481,12 @@ def resident_detail(resident_id):
     today = date.today().isoformat()
 
     if request.method == "POST":
-        action = request.form.get("action", "note")
+        action = request.form.get("action", "")
 
-        if action == "note":
-            content = request.form.get("content", "").strip()
-            if not content:
-                flash("Note cannot be empty.", "error")
-            else:
-                db.execute(
-                    "INSERT INTO notes (resident_id, content, author) VALUES (?, ?, ?)",
-                    (resident_id, content, session.get("username")),
-                )
-                db.commit()
-                flash("Note added.", "success")
-
-        elif action == "med_add":
+        if action == "add":
+            # Add a new medication.
             med_name = request.form.get("med_name", "").strip()
             med_dosage = request.form.get("med_dosage", "").strip()
-
             if not med_name:
                 flash("Medication name is required.", "error")
             else:
@@ -434,9 +497,9 @@ def resident_detail(resident_id):
                 db.commit()
                 flash("Medication added.", "success")
 
-        elif action == "med_check":
+        elif action == "checklist":
+            # Save today's checklist.
             given_ids_raw = request.form.getlist("given_ids")
-            # Normalize to ints; ignore invalid values silently.
             given_ids = set()
             for x in given_ids_raw:
                 try:
@@ -444,8 +507,6 @@ def resident_detail(resident_id):
                 except ValueError:
                     continue
 
-            # For "today", treat checkbox state as the source of truth:
-            # remove all logs then recreate for checked medications.
             db.execute(
                 """
                 DELETE FROM medication_logs
@@ -469,11 +530,6 @@ def resident_detail(resident_id):
             db.commit()
             flash("Medication checklist saved.", "success")
 
-    notes = db.execute(
-        "SELECT content, author, created_at FROM notes WHERE resident_id = ? ORDER BY created_at DESC",
-        (resident_id,),
-    ).fetchall()
-
     medications = db.execute(
         "SELECT id, name, dosage FROM medications WHERE resident_id = ? ORDER BY created_at DESC",
         (resident_id,),
@@ -495,14 +551,44 @@ def resident_detail(resident_id):
     db.close()
 
     return render_template(
-        "resident_detail.html",
+        "medications_page.html",
         resident=resident,
-        notes=notes,
         medications=medications,
         given_medication_ids=given_medication_ids,
         today=today,
         username=session.get("username"),
     )
+
+
+@app.route(
+    "/residents/<int:resident_id>/medications/<int:medication_id>/delete",
+    methods=["POST"],
+)
+@login_required
+def delete_medication(resident_id, medication_id):
+    # Remove one medication from a resident.
+    db = get_db_connection()
+
+    med = db.execute(
+        "SELECT id, resident_id FROM medications WHERE id = ?",
+        (medication_id,),
+    ).fetchone()
+
+    if not med:
+        db.close()
+        abort(404)
+
+    # Safety: do not delete meds from another resident.
+    if med["resident_id"] != resident_id:
+        db.close()
+        abort(404)
+
+    db.execute("DELETE FROM medications WHERE id = ?", (medication_id,))
+    db.commit()
+    db.close()
+
+    flash("Medication removed.", "success")
+    return redirect(url_for("resident_medications", resident_id=resident_id))
 
 
 @app.route("/residents/<int:resident_id>/bp", methods=["GET", "POST"])
@@ -548,6 +634,79 @@ def bp_history(resident_id):
         "bp_history.html",
         resident=resident,
         readings=readings,
+        username=session.get("username"),
+    )
+
+
+@app.route("/residents/<int:resident_id>/doctor-summary", methods=["GET"])
+@login_required
+def doctor_summary(resident_id):
+    """
+    Read-only "Report" page.
+    A doctor can review a patient fast on one screen.
+    """
+    # Open the database.
+    db = get_db_connection()
+
+    # Get the resident info.
+    resident = db.execute(
+        "SELECT * FROM residents WHERE id = ?", (resident_id,)
+    ).fetchone()
+
+    if not resident:
+        # Stop if the resident does not exist.
+        db.close()
+        flash("Patient not found.", "error")
+        return redirect(url_for("home"))
+
+    # Use ISO date like 2026-03-25.
+    today = date.today().isoformat()
+
+    # Load BP history (newest first).
+    readings = db.execute(
+        "SELECT bp, recorded_at FROM bp_readings WHERE resident_id = ? ORDER BY recorded_at DESC",
+        (resident_id,),
+    ).fetchall()
+
+    # Load notes (newest first).
+    notes = db.execute(
+        "SELECT content, author, created_at FROM notes WHERE resident_id = ? ORDER BY created_at DESC",
+        (resident_id,),
+    ).fetchall()
+
+    # Load medication list for this resident.
+    medications = db.execute(
+        "SELECT id, name, dosage FROM medications WHERE resident_id = ? ORDER BY created_at DESC",
+        (resident_id,),
+    ).fetchall()
+
+    # Track which meds were given today.
+    given_medication_ids = set()
+    if medications:
+        # Join logs with meds to filter by resident.
+        given_rows = db.execute(
+            """
+            SELECT ml.medication_id
+            FROM medication_logs ml
+            INNER JOIN medications m ON m.id = ml.medication_id
+            WHERE m.resident_id = ? AND ml.given_date = ?
+            """,
+            (resident_id, today),
+        ).fetchall()
+        given_medication_ids = {row["medication_id"] for row in given_rows}
+
+    # Close the database.
+    db.close()
+
+    # Render the "Report" page.
+    return render_template(
+        "doctor_summary.html",
+        resident=resident,
+        readings=readings,
+        notes=notes,
+        medications=medications,
+        given_medication_ids=given_medication_ids,
+        today=today,
         username=session.get("username"),
     )
 

@@ -13,7 +13,7 @@
                 <span class="user-info">Logged in as {{ username }}</span>
                 <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
             {% endif %}
-            <a href="{{ url_for('resident_detail', resident_id=resident['id']) }}" class="btn-logout" style="background-color:#334e68;">Back</a>
+            <a href="{{ url_for('home') }}" class="btn-logout" style="background-color:#334e68;">Back</a>
         </div>
     </div>
 
