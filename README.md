@@ -35,25 +35,9 @@ python care.py or py care.py
 
 
 - The app uses a local SQLite database file created automatically: `Seniorcare.db` in the same folder as `care.py`.
-- Change the secret key in `care.py` before deploying to production (do not leave the default).
+- Change the secret key in `care.py` before deploying to production (do not leave the default)
 
-
-
-
-# SeniorCare Web App
-
-A small Flask app for managing residents, blood pressure, notes, and medications.
-
----
-
-## What you need
-
-- **Python 3** installed on your computer  
-  (If you type `python --version` or `py --version` in a terminal, you should see 3.x.)
-
----
-
-## How to run it (step by step)
+## How to run it 
 
 ### 1. Get the code
 
