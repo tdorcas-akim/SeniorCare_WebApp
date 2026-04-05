@@ -1,4 +1,4 @@
-SeniorCare - Patient Management System
+SeniorCare : Patient Management System
 
 SeniorCare is a simple web app built with Python and Flask. It helps staff in senior living homes track patient vitals, medications, and daily notes.
 
@@ -17,37 +17,39 @@ Features
  How to run it locally
 
 1. Requirements
+
 Make sure you have Python installed on your computer.
 
 2. Setup
-Clone the project or download the files.
 
-Install Flask by typing this in your terminal:
+Follow these steps to get the code onto your machine:
 
-Bash
+Step A: Clone the project Open your terminal or command prompt and run:
+
+git clone https://github.com/your-username/SeniorCare.git
+cd SeniorCare
+
+Step B: Install dependencies Install the Flask framework using pip:
+
 pip install flask
-3. Start the app
-Run the main file:
 
-Bash
-python care.py or py care.py
-Once it starts, open your browser and go to: http://127.0.0.1:5000
+3. Start the Application
+
+Initialize the database and start the local server by running:
+
+python care.py
+
+(Note: If python doesn't work, try python3 care.py or py care.py)
+
+Once the terminal says "Running on...", open your browser and navigate to:
+ http://127.0.0.1:5000
 
 Project Structure
-care.py: The main Python code.
 
-templates/: All the HTML pages.
+1. care.py: The core logic.
 
-static/: The CSS file for the design.
+2. templates/: HTML files (Jinja2) for the dashboard, login, and patient details.
 
-Seniorcare.db: The database where all patient info is saved.
+3. static/: The CSS file for the design.
 
-Note for Deployment
-Before you put this online (like on Render, Railway, or PythonAnywhere):
-
-Change the secret_key in care.py to something unique.
-
-Make sure your host supports SQLite (most do by default).
-
-Add a requirements.txt file by running:
-pip freeze > requirements.txt
+4. Seniorcare.db: The database where all patient info is saved.
