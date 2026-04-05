@@ -26,9 +26,9 @@ Follow these steps to get the code onto your machine:
 
 Step A: Clone the project Open your terminal or command prompt and run:
 
-git clone https://github.com/tdorcas-akim/SeniorCare.git
+git clone https://github.com/tdorcas-akim/SeniorCare_WebApp.git
 
-cd SeniorCare
+cd "Senior Care_app"
 
 Step B: Install dependencies Install the Flask framework using pip:
 
