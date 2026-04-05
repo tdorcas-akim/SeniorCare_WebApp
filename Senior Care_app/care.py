@@ -3,9 +3,10 @@ from functools import wraps
 from datetime import date
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
+import os
 
 app = Flask(__name__)
-app.secret_key = "change-this-secret"
+app.secret_key = os.environ.get("SECRET_KEY", "dev-key-123")
 
 
 def get_db_connection():
@@ -33,7 +34,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             age INTEGER NOT NULL,
-            bp INTEGER NOT NULL
+            bp INTEGER NOT NULL,
+            temperature REAL
         )
         """
     )
@@ -54,12 +56,24 @@ def init_db():
         CREATE TABLE IF NOT EXISTS bp_readings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             resident_id INTEGER NOT NULL,
-            bp INTEGER NOT NULL,
+            bp INTEGER,
+            temperature REAL,
             recorded_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (resident_id) REFERENCES residents (id) ON DELETE CASCADE
         )
         """
     )
+    # If upgrading an existing DB, try to add columns if missing.
+    try:
+        conn.execute("ALTER TABLE residents ADD COLUMN temperature REAL")
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
+
+    try:
+        conn.execute("ALTER TABLE bp_readings ADD COLUMN temperature REAL")
+    except sqlite3.OperationalError:
+        pass
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS medications (
@@ -118,11 +132,24 @@ def home():
         residents = db.execute("SELECT * FROM residents ORDER BY name").fetchall()
 
     # Find residents with BP > 140 (high alert).
-    # This is a simple loop so staff can see urgency fast.
-    high_alert_names = []
+    # This is a loop so staff can see urgency fast.
+    high_bp_names = []
+    low_bp_names = []
+    high_temp_names = []
+    low_temp_names = []
+
     for resident in residents:
-        if resident["bp"] > 140:
-            high_alert_names.append(resident["name"])
+        if resident ["bp"]:
+            if resident["bp"] > 140:
+                high_bp_names.append(resident["name"])
+            elif resident["bp"] < 90:
+                low_bp_names.append(resident["name"])
+
+        if resident["temperature"]:
+            if resident["temperature"] > 38:
+                high_temp_names.append(resident["name"])
+            elif resident["temperature"] < 35:
+                low_temp_names.append(resident["name"])
 
     medications_by_resident = {}
     given_ids_by_resident = {}
@@ -173,7 +200,10 @@ def home():
     return render_template(
         "index.html",
         residents=residents,
-        high_alert_names=high_alert_names,
+        high_bp_names=high_bp_names,
+        low_bp_names=low_bp_names,
+        high_temp_names=high_temp_names,
+        low_temp_names=low_temp_names,
         medications_by_resident=medications_by_resident,
         given_ids_by_resident=given_ids_by_resident,
         username=session.get("username"),
@@ -249,6 +279,7 @@ def new_resident():
         name = request.form.get("name", "").strip()
         age_raw = request.form.get("age", "").strip()
         bp_raw = request.form.get("bp", "").strip()
+        temperature_raw= request.form.get("temperature", "").strip()
 
         if not name:
             flash("Name is required.", "error")
@@ -261,7 +292,7 @@ def new_resident():
             flash("Age and BP must be numbers.", "error")
             return render_template("new_resident.html", username=session.get("username"))
 
-        if age <= 0 or age > 130:
+        if age <= 0 or age > 120:
             flash("Please enter a valid age.", "error")
             return render_template("new_resident.html", username=session.get("username"))
 
@@ -271,8 +302,8 @@ def new_resident():
 
         db = get_db_connection()
         db.execute(
-            "INSERT INTO residents (name, age, bp) VALUES (?, ?, ?)",
-            (name, age, bp),
+            "INSERT INTO residents (name, age, bp, temperature) VALUES (?, ?, ?, ?)",
+            (name, age, bp, temperature_raw or None),
         )
         db.commit()
         db.close()
@@ -300,6 +331,7 @@ def edit_resident(resident_id):
         name = request.form.get("name", "").strip()
         age_raw = request.form.get("age", "").strip()
         bp_raw = request.form.get("bp", "").strip()
+        temperature_raw = request.form.get("temperature", "").strip()
 
         if not name:
             flash("Name is required.", "error")
@@ -309,6 +341,14 @@ def edit_resident(resident_id):
         try:
             age = int(age_raw)
             bp = int(bp_raw)
+            temperature = None
+            if temperature_raw:
+                try:
+                    temperature = float(temperature_raw)
+                except ValueError:
+                    flash("Temperature must be a number.", "error")
+                    db.close()
+                    return redirect(url_for("edit_resident", resident_id=resident_id))
         except ValueError:
             flash("Age and BP must be numbers.", "error")
             db.close()
@@ -324,9 +364,15 @@ def edit_resident(resident_id):
             db.close()
             return redirect(url_for("edit_resident", resident_id=resident_id))
 
+        if temperature is not None:
+            if temperature < 35 or temperature > 45:
+                flash("Please enter a valid temperature.", "error")
+                db.close()
+                return redirect(url_for("edit_resident", resident_id=resident_id))
+
         db.execute(
-            "UPDATE residents SET name = ?, age = ?, bp = ? WHERE id = ?",
-            (name, age, bp, resident_id),
+            "UPDATE residents SET name = ?, age = ?, bp = ?, temperature = ? WHERE id = ?",
+            (name, age, bp, temperature, resident_id),
         )
         db.commit()
         db.close()
@@ -606,26 +652,57 @@ def bp_history(resident_id):
 
     if request.method == "POST":
         bp_raw = request.form.get("bp", "").strip()
-        if not bp_raw:
-            flash("Blood pressure value is required.", "error")
+        temp_raw = request.form.get("temperature", "").strip()
+        if not bp_raw and not temp_raw:
+            flash("Enter a BP or temperature value.", "error")
         else:
-            try:
-                bp = int(bp_raw)
-            except ValueError:
-                flash("Blood pressure must be a number.", "error")
-            else:
+            bp = None
+            temperature = None
+            if bp_raw:
+                try:
+                    bp = int(bp_raw)
+                except ValueError:
+                    flash("Blood pressure must be a number.", "error")
+                    bp = None
+
+            if temp_raw:
+                try:
+                    temperature = float(temp_raw)
+                except ValueError:
+                    flash("Temperature must be a number.", "error")
+                    temperature = None
+
+            if bp is not None:
                 if bp <= 0 or bp > 400:
                     flash("Please enter a valid blood pressure.", "error")
-                else:
-                    db.execute(
-                        "INSERT INTO bp_readings (resident_id, bp) VALUES (?, ?)",
-                        (resident_id, bp),
-                    )
-                    db.commit()
-                    flash("Blood pressure reading added.", "success")
+                    bp = None
+
+            if temperature is not None:
+                if temperature < 30 or temperature > 45:
+                    flash("Please enter a valid temperature.", "error")
+                    temperature = None
+
+            # Only insert if valid values present
+            if bp is not None or temperature is not None:
+                # Insert the new reading into bp_readings.
+                db.execute(
+                    "INSERT INTO bp_readings (resident_id, bp, temperature) VALUES (?, ?, ?)",
+                    (resident_id, bp, temperature),
+                )
+                db.commit()
+                # Update the resident's information on the dashboard
+                if bp is not None and temperature is not None:
+                    db.execute("UPDATE residents SET bp = ?, temperature = ? WHERE id = ?", (bp, temperature, resident_id))
+                elif bp is not None:
+                    db.execute("UPDATE residents SET bp = ? WHERE id = ?", (bp, resident_id))
+                elif temperature is not None:
+                    db.execute("UPDATE residents SET temperature = ? WHERE id = ?", (temperature, resident_id))
+
+                db.commit()
+                flash("Reading added and dashboard updated.", "success")
 
     readings = db.execute(
-        "SELECT bp, recorded_at FROM bp_readings WHERE resident_id = ? ORDER BY recorded_at DESC",
+        "SELECT bp, temperature, recorded_at FROM bp_readings WHERE resident_id = ? ORDER BY recorded_at DESC",
         (resident_id,),
     ).fetchall()
     db.close()
@@ -664,7 +741,7 @@ def doctor_summary(resident_id):
 
     # Load BP history (newest first).
     readings = db.execute(
-        "SELECT bp, recorded_at FROM bp_readings WHERE resident_id = ? ORDER BY recorded_at DESC",
+        "SELECT bp, temperature, recorded_at FROM bp_readings WHERE resident_id = ? ORDER BY recorded_at DESC",
         (resident_id,),
     ).fetchall()
 

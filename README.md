@@ -1,115 +1,53 @@
-**Project Title**: Senior Care Web App
+SeniorCare - Patient Management System
 
-** Description**: A web app to help care staff track residents, their blood pressure, medications, and notes. It is simple and easy to run on a local machine.
+SeniorCare is a simple web app built with Python and Flask. It helps staff in senior living homes track patient vitals, medications, and daily notes.
 
-**How to run locally (Windows)**
-1. Install Python 3.13 or newer from python.org.
-2. Open PowerShell and go to the project folder (where this README.md is):
+Features
 
-```powershell
-cd "c:\Users\Akim\Downloads\SeniorCare_WebApp\Senior Care_app"
-```
+1. Patient Dashboard: Quick view of all residents.
 
-3. Create and activate a virtual environment:
+2. Vitals Tracker: Log blood pressure and temperature with a full history.
 
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-```
+3. Medication Checklist: Track which meds were given each day.
 
-4. Install required packages:
+4. Doctor's Report: A one-page summary for doctors to review.
 
-```powershell
-pip install Flask werkzeug
-```
+5. Health Alerts: Highlights patients with high BP or fever.
 
-5. Run the app:
+ How to run it locally
 
-```powershell
+1. Requirements
+Make sure you have Python installed on your computer.
+
+2. Setup
+Clone the project or download the files.
+
+Install Flask by typing this in your terminal:
+
+Bash
+pip install flask
+3. Start the app
+Run the main file:
+
+Bash
 python care.py or py care.py
-```
+Once it starts, open your browser and go to: http://127.0.0.1:5000
 
-6. Open a browser and go to `http://127.0.0.1:5000/`.
+Project Structure
+care.py: The main Python code.
 
-7. First time: register a user at the Register page, then log in and try the features.
+templates/: All the HTML pages.
 
+static/: The CSS file for the design.
 
-- The app uses a local SQLite database file created automatically: `Seniorcare.db` in the same folder as `care.py`.
-- Change the secret key in `care.py` before deploying to production (do not leave the default)
+Seniorcare.db: The database where all patient info is saved.
 
-## How to run it 
+Note for Deployment
+Before you put this online (like on Render, Railway, or PythonAnywhere):
 
-### 1. Get the code
+Change the secret_key in care.py to something unique.
 
-Clone the repo, or download and unzip it, then open a terminal **inside the project folder** (the folder that contains `Senior Care_app`).
+Make sure your host supports SQLite (most do by default).
 
-### 2. Create a virtual environment
-
-```bash
-python -m venv .venv
-```
-
-If `python` does not work, try:
-
-```bash
-py -m venv .venv
-```
-
-### 3. Turn the virtual environment on
-
-**Windows (PowerShell):**
-
-```bash
-.\.venv\Scripts\Activate.ps1
-```
-
-**Windows (Command Prompt):**
-
-```bash
-.\.venv\Scripts\activate.bat
-```
-
-You should see `(.venv)` at the start of your terminal line when it worked.
-
-### 4. Install the packages
-
-```bash
-pip install flask werkzeug
-```
-
-### 5. Start the app
-
-From the **same project root** (not inside `Senior Care_app` unless you adjust the path):
-
-```bash
-python "Senior Care_app/care.py"
-```
-
-If `python` does not work:
-
-```bash
-py "Senior Care_app/care.py"
-```
-
-### 6. Open it in the browser
-
-Go to:
-
-**http://127.0.0.1:5000**
-
-The first time you run the app, it creates a local SQLite database file (`Seniorcare.db`) next to where the app runs.
-
-### 7. Stop the server
-
-In the terminal where the app is running, press **Ctrl + C**.
-
----
-
-## Troubleshooting
-
-- **“Python was not found”** — Install Python from [python.org](https://www.python.org/downloads/) and tick “Add Python to PATH”, or use the `py` launcher as shown above.
-- **“No module named flask”** — Make sure the virtual environment is activated (step 3), then run `pip install flask werkzeug` again.
-- **Wrong folder** — The command in step 5 must be run from the folder that contains the `Senior Care_app` directory.
-
----
-
+Add a requirements.txt file by running:
+pip freeze > requirements.txt

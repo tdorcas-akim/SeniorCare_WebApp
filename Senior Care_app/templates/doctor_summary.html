@@ -32,22 +32,27 @@
             <div class="patient-main">
                 <h2>{{ resident['name'] }}</h2>
                 <p>Age: {{ resident['age'] }} yrs</p>
-                <p>Latest BP: {{ resident['bp'] }} mmHg</p>
+                <p>Latest Vitals: {{ resident['bp'] }} mmHg{% if resident['temperature'] is not none %} / {{ resident['temperature'] }} °C{% endif %}</p>
             </div>
         </div>
 
         <div class="summary-layout">
             <div class="summary-column">
-                <h3>Vitals (BP)</h3>
+                <h3>Vitals</h3>
                 {% if readings %}
                     <div class="notes-list">
                         {% for row in readings %}
                             <div class="note-card">
                                 <div class="note-meta">
-                                    <span class="note-author">BP</span>
+                                    <span class="note-author">Vitals</span>
                                     <span class="note-date">{{ row['recorded_at'] }}</span>
                                 </div>
-                                <p class="note-content">{{ row['bp'] }} mmHg</p>
+                                <p class="note-content">
+                                    {% if row['bp'] is not none %}{{ row['bp'] }} mmHg{% endif %}
+                                    {% if row['temperature'] is not none %}
+                                        {% if row['bp'] is not none %} / {% endif %}{{ row['temperature'] }} °C
+                                    {% endif %}
+                                </p>
                             </div>
                         {% endfor %}
                     </div>

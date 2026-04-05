@@ -35,7 +35,7 @@
                 <p>BP: {{ resident['bp'] }} mmHg</p>
             </div>
             <div class="patient-actions">
-                <a href="{{ url_for('bp_history', resident_id=resident['id']) }}" class="btn-small">BP history</a>
+                <a href="{{ url_for('bp_history', resident_id=resident['id']) }}" class="btn-small">Vitals history</a>
                 <a href="{{ url_for('doctor_summary', resident_id=resident['id']) }}" class="btn-small">Report</a>
                 <a href="{{ url_for('resident_medications', resident_id=resident['id']) }}" class="btn-small">Medications</a>
                 <a href="{{ url_for('edit_resident', resident_id=resident['id']) }}" class="btn-small">Edit</a>

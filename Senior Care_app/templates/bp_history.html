@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ resident['name'] }} - BP History - SeniorCare</title>
+    <title>{{ resident['name'] }} - Vitals History - SeniorCare</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -37,21 +37,28 @@
 
         <div class="notes-layout">
             <div class="notes-column">
-                <h3>Blood pressure history</h3>
+                <h3>Vitals history</h3>
                 {% if readings %}
                     <div class="notes-list">
                         {% for row in readings %}
                             <div class="note-card">
                                 <div class="note-meta">
-                                    <span class="note-author">BP</span>
+                                    <span class="note-author">Vitals</span>
                                     <span class="note-date">{{ row['recorded_at'] }}</span>
                                 </div>
-                                <p class="note-content">{{ row['bp'] }} mmHg</p>
+                                <p class="note-content">
+                                    {% if row['bp'] is not none %}
+                                        {{ row['bp'] }} mmHg
+                                    {% endif %}
+                                    {% if row['temperature'] is not none %}
+                                        {% if row['bp'] is not none %} / {% endif %}{{ row['temperature'] }} °C
+                                    {% endif %}
+                                </p>
                             </div>
                         {% endfor %}
                     </div>
                 {% else %}
-                    <p class="no-notes">No blood pressure readings recorded yet.</p>
+                    <p class="no-notes">No vitals readings recorded yet.</p>
                 {% endif %}
             </div>
 
@@ -60,7 +67,11 @@
                 <form method="post" class="note-form">
                     <div class="form-group">
                         <label for="bp">Blood pressure (mmHg)</label>
-                        <input id="bp" name="bp" type="number" min="1" max="400" required>
+                        <input id="bp" name="bp" type="number" min="1" max="400">
+                    </div>
+                    <div class="form-group">
+                        <label for="temperature">Temperature (°C)</label>
+                        <input id="temperature" name="temperature" type="number" step="0.1" min="30" max="45">
                     </div>
                     <button type="submit" class="btn-primary">Add reading</button>
                 </form>
