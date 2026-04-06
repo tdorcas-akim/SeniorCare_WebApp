@@ -18,7 +18,7 @@ Features
 
 1. Requirements
 
-Make sure you have Python installed on your computer.
+Make sure you have Python 3 installed on your computer.
 
 2. Setup
 
@@ -28,21 +28,27 @@ Step A: Clone the project Open your terminal or command prompt and run:
 
 git clone https://github.com/tdorcas-akim/SeniorCare_WebApp.git
 
-cd "Senior Care_app"
+cd SeniorCare_WebApp
 
-Step B: Install dependencies Install the Flask framework using pip:
+Step B: Install dependencies 
 
-pip install flask
+Install everything required using the requirements file:
+
+pip install -r "Senior Care_app/requirements.txt"
 
 3. Start the Application
 
-Initialize the database and start the local server by running:
+Navigate into the application folder and start the server:
+
+cd "Senior Care_app"
 
 python care.py
 
 (Note: If python doesn't work, try python3 care.py or py care.py)
 
-Once the terminal says "Running on...", open your browser and navigate to:
+4. Access the App
+
+Once the terminal shows "Running on...", open your browser and go to:
  http://127.0.0.1:5000
 
 Project Structure
@@ -54,3 +60,5 @@ Project Structure
 3. static/: The CSS file for the design.
 
 4. Seniorcare.db: The database where all patient info is saved.
+
+5. requirements.txt: List of necessary Python libraries for the project.
